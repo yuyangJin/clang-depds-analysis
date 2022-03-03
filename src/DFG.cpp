@@ -17,6 +17,10 @@
 // Declares llvm::cl::extrahelp.
 #include "llvm/Support/CommandLine.h"
 
+
+#include <vector>
+#include <algorithm>
+
 // using namespace clang::tooling;
 // using namespace llvm;
 
@@ -41,9 +45,12 @@ static cl::extrahelp MoreHelp("\nMore help text...\n");
 
 int numFunctions = 0;
 
+
 class ExampleVisitor : public RecursiveASTVisitor<ExampleVisitor> {
 private:
     ASTContext *astContext; // used for getting additional AST info
+    vector<ArraySubscriptExpr*> visitedASE;
+    bool recursiveFlag = false;
 
 public:
     explicit ExampleVisitor(CompilerInstance *CI) 
@@ -59,7 +66,7 @@ public:
         //     rewriter.ReplaceText(func->getNameInfo().getLoc(), funcName.length(), "add5");
         //     errs() << "** Rewrote function def: " << funcName << "\n";
         // }    
-        errs() << "Hello: " << funcName << "\n";
+        errs() << "Function: " << funcName << "\n";
         return true;
     }
 
@@ -84,14 +91,31 @@ public:
     }
 
     virtual bool VisitArraySubscriptExpr(ArraySubscriptExpr *array) {
+        if (find(visitedASE.begin(), visitedASE.end(), array) != visitedASE.end()) {
+            return true;
+        }
+        visitedASE.push_back(array);
+
         if (auto *cast = dyn_cast<ImplicitCastExpr>(array->getBase())) {
             if (auto *decl = dyn_cast<DeclRefExpr>(cast->getSubExpr())) {
                 errs() << decl->getNameInfo().getAsString();
+            } else if (auto *ase = dyn_cast<ArraySubscriptExpr>(cast->getSubExpr())) {
+                recursiveFlag = true;
+                VisitArraySubscriptExpr(ase);
+                recursiveFlag = false;
             }
+        } else {
+            errs() << "_UNKOWN" ;
         }
+
+        
         errs() << "[" ;
         getIdxForm(array->getIdx());
-        errs() << "]\n" ;
+        errs() << "]" ;
+
+        if (!recursiveFlag) {
+            errs() << "\n";
+        } 
         
 
         // VisitArraySubscriptExpr(array);
