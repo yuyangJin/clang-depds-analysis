@@ -1,9 +1,13 @@
 // Declares clang::SyntaxOnlyAction.
 #include "clang/Driver/Options.h"
 #include "clang/AST/AST.h"
+#include "clang/AST/Expr.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/Basic/SourceLocation.h"
+// #include "clang/Analysis/FlowSensitive/DataflowAnalysis.h"
+
 #include "clang/Frontend/ASTConsumers.h"
 #include "clang/Frontend/CompilerInstance.h"
 
@@ -56,6 +60,42 @@ public:
         //     errs() << "** Rewrote function def: " << funcName << "\n";
         // }    
         errs() << "Hello: " << funcName << "\n";
+        return true;
+    }
+
+    // virtual bool VisitStmt(Stmt *st) {
+    //     if  (ReturnStmt *ret = dyn_cast<ReturnStmt>(st)) {
+    //         errs() << ;
+    //     }
+    // }
+
+    void getIdxForm(Expr* exp) {
+        if (auto *cast = dyn_cast<ImplicitCastExpr>(exp)) {
+            if (auto *decl = dyn_cast<DeclRefExpr>(cast->getSubExpr())) {
+                errs() << decl->getNameInfo().getAsString() ;
+            }
+        } else if (auto *cast = dyn_cast<BinaryOperator>(exp)) {
+            getIdxForm(cast->getLHS());
+            errs() << cast->getOpcodeStr() ;
+            getIdxForm(cast->getRHS());
+        } else if (auto *il = dyn_cast<IntegerLiteral>(exp)){
+            errs() << il->getValue().getLimitedValue() ;
+        }
+    }
+
+    virtual bool VisitArraySubscriptExpr(ArraySubscriptExpr *array) {
+        if (auto *cast = dyn_cast<ImplicitCastExpr>(array->getBase())) {
+            if (auto *decl = dyn_cast<DeclRefExpr>(cast->getSubExpr())) {
+                errs() << decl->getNameInfo().getAsString();
+            }
+        }
+        errs() << "[" ;
+        getIdxForm(array->getIdx());
+        errs() << "]\n" ;
+        
+
+        // VisitArraySubscriptExpr(array);
+        // errs() << "hello: " << ase->getExprLoc().printToString() <<"\n";
         return true;
     }
 
